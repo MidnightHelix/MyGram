@@ -9,6 +9,7 @@ import (
 	"github.com/MidnightHelix/MyGram/internal/service"
 	"github.com/MidnightHelix/MyGram/pkg"
 	"github.com/MidnightHelix/MyGram/pkg/dto"
+	"github.com/MidnightHelix/MyGram/pkg/validator"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -22,27 +23,33 @@ type PhotoHandler interface {
 }
 
 type photoHandlerImpl struct {
-	svc service.PhotoService
+	svc       service.PhotoService
+	validator *validator.CustomValidator
 }
 
-func NewPhotoHandler(svc service.PhotoService) PhotoHandler {
+func NewPhotoHandler(svc service.PhotoService, validator *validator.CustomValidator) PhotoHandler {
 	return &photoHandlerImpl{
-		svc: svc,
+		svc:       svc,
+		validator: validator,
 	}
 }
 
-// ShowUsers godoc
+// ShowPhotos godoc
 //
-//	@Summary		Show users list
-//	@Description	will fetch 3rd party server to get users data
-//	@Tags			users
+//	@Summary		Show photo list
+//	@Description	Get photos of user
+//	@Tags			photos
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	[]model.User
+//
+// @Security ApiKeyAuth
+// @param Authorization header string true "Authorization"
+//
+//	@Success		200	{object}	[]dto.Photo
 //	@Failure		400	{object}	pkg.ErrorResponse
 //	@Failure		404	{object}	pkg.ErrorResponse
 //	@Failure		500	{object}	pkg.ErrorResponse
-//	@Router			/users [get]
+//	@Router			/photos [get]
 func (u *photoHandlerImpl) GetPhotos(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {
@@ -84,19 +91,6 @@ func (u *photoHandlerImpl) GetPhotos(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, pkg.SuccessResponse{Data: data})
 }
 
-// ShowUsersById godoc
-//
-//	@Summary		Show users detail
-//	@Description	will fetch 3rd party server to get users data to get detail user
-//	@Tags			users
-//	@Accept			json
-//	@Produce		json
-//	@Param			id	path		int	true	"User ID"
-//	@Success		200	{object}	model.User
-//	@Failure		400	{object}	pkg.ErrorResponse
-//	@Failure		404	{object}	pkg.ErrorResponse
-//	@Failure		500	{object}	pkg.ErrorResponse
-//	@Router			/users/{id} [get]
 // func (u *photoHandlerImpl) GetUsersById(ctx *gin.Context) {
 // 	// get id user
 // 	id, err := strconv.Atoi(ctx.Param("id"))
@@ -112,6 +106,23 @@ func (u *photoHandlerImpl) GetPhotos(ctx *gin.Context) {
 // 	ctx.JSON(http.StatusOK, user)
 // }
 
+//	 PostPhoto godoc
+//
+//		@Summary		Post a photo
+//		@Description	Create photo with input payload
+//		@Tags			photos
+//		@Accept			json
+//		@Produce		json
+//
+// @Security ApiKeyAuth
+// @param Authorization header string true "Authorization"
+//
+//	@Param photo body Photo true "Create Photo"
+//	@Success		201	{object}	dto.Photo
+//	@Failure		400	{object}	pkg.ErrorResponse
+//	@Failure		404	{object}	pkg.ErrorResponse
+//	@Failure		500	{object}	pkg.ErrorResponse
+//	@Router			/photos [post]
 func (u *photoHandlerImpl) PostPhoto(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {
@@ -138,6 +149,11 @@ func (u *photoHandlerImpl) PostPhoto(ctx *gin.Context) {
 	// 	return
 	// }
 
+	if err := u.validator.ValidateStruct(photo); err != nil {
+		ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
+		return
+	}
+
 	photo, err := u.svc.PostPhoto(ctx, photo, uint64(userID))
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, pkg.ErrorResponse{Message: err.Error()})
@@ -156,6 +172,24 @@ func (u *photoHandlerImpl) PostPhoto(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, pkg.SuccessResponse{Data: data})
 }
 
+//	 UpdatePhoto godoc
+//
+//		@Summary		Update a photo
+//		@Description	Update photo with input payload
+//		@Tags			photos
+//		@Accept			json
+//		@Produce		json
+//
+// @Security ApiKeyAuth
+// @param Authorization header string true "Authorization"
+//
+//	@Param photo body Photo true "Update Photo"
+//	@Param        id   path      int  true  "Photo ID"
+//	@Success		200	{object}	dto.Photo
+//	@Failure		400	{object}	pkg.ErrorResponse
+//	@Failure		404	{object}	pkg.ErrorResponse
+//	@Failure		500	{object}	pkg.ErrorResponse
+//	@Router			/photos/{id} [put]
 func (u *photoHandlerImpl) EditPhoto(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {
@@ -196,6 +230,10 @@ func (u *photoHandlerImpl) EditPhoto(ctx *gin.Context) {
 	// 	ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
 	// 	return
 	// }
+	if err := u.validator.ValidateStruct(req); err != nil {
+		ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
+		return
+	}
 
 	photo, err := u.svc.EditPhoto(ctx, req, uint64(id))
 	if err != nil {
@@ -203,7 +241,6 @@ func (u *photoHandlerImpl) EditPhoto(ctx *gin.Context) {
 		return
 	}
 
-	//ctx.JSON(http.StatusOK, photo)
 	data := dto.Photo{
 		ID:        photo.ID,
 		Title:     photo.Title,
@@ -216,6 +253,21 @@ func (u *photoHandlerImpl) EditPhoto(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, pkg.SuccessResponse{Data: data})
 }
 
+// DeletePhoto godoc
+//
+// @Summary		Delete a photo
+// @Description	Delete photo with id param
+// @Tags			photos
+// @Accept			json
+// @Produce		json
+// @Security ApiKeyAuth
+// @param Authorization header string true "Authorization"
+// @Param        id   path      int  true  "Photo ID"
+// @Success		200	{object}	pkg.SuccessResponse
+// @Failure		400	{object}	pkg.ErrorResponse
+// @Failure		404	{object}	pkg.ErrorResponse
+// @Failure		500	{object}	pkg.ErrorResponse
+// @Router			/photos/{id} [delete]
 func (u *photoHandlerImpl) DeletePhoto(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {

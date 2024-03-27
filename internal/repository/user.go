@@ -13,7 +13,7 @@ type UserQuery interface {
 	FindByEmail(ctx context.Context, email string) (model.User, error)
 
 	CreateUser(ctx context.Context, user model.User) (model.User, error)
-	EditUser(ctx context.Context, user model.User, id uint64) (model.User, error)
+	EditUser(ctx context.Context, editUser model.User, id uint64) (model.User, error)
 	DeleteUser(ctx context.Context, id uint64) error
 }
 

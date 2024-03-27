@@ -7,14 +7,15 @@ import (
 
 	"github.com/MidnightHelix/MyGram/internal/model"
 	"github.com/MidnightHelix/MyGram/internal/repository"
+	"github.com/MidnightHelix/MyGram/pkg/dto"
 	"github.com/MidnightHelix/MyGram/pkg/helper"
 )
 
 type UserService interface {
 	GetUsers(ctx context.Context) ([]model.User, error)
 	GetUsersById(ctx context.Context, id uint64) (model.User, error)
-	SignUp(ctx context.Context, userSignUp model.UserSignUp) (model.User, error)
-	Login(ctx context.Context, userLogin model.UserLogin) (model.User, error)
+	SignUp(ctx context.Context, userSignUp dto.UserSignUp) (model.User, error)
+	Login(ctx context.Context, userLogin dto.UserLogin) (model.User, error)
 	EditUser(ctx context.Context, editUser model.User, id uint64) (model.User, error)
 	DeleteUser(ctx context.Context, id uint64) error
 	// misc
@@ -45,11 +46,12 @@ func (u *userServiceImpl) GetUsersById(ctx context.Context, id uint64) (model.Us
 	return user, err
 }
 
-func (u *userServiceImpl) SignUp(ctx context.Context, userSignUp model.UserSignUp) (model.User, error) {
+func (u *userServiceImpl) SignUp(ctx context.Context, userSignUp dto.UserSignUp) (model.User, error) {
 	// assumption: semua user adalah user baru
 	user := model.User{
 		Username: userSignUp.Username,
 		Email:    userSignUp.Email,
+		Age:      userSignUp.Age,
 	}
 
 	// encryption password
@@ -68,7 +70,7 @@ func (u *userServiceImpl) SignUp(ctx context.Context, userSignUp model.UserSignU
 	return res, err
 }
 
-func (u *userServiceImpl) Login(ctx context.Context, userLogin model.UserLogin) (model.User, error) {
+func (u *userServiceImpl) Login(ctx context.Context, userLogin dto.UserLogin) (model.User, error) {
 	user, err := u.repo.FindByEmail(ctx, userLogin.Email)
 	if err != nil {
 		return model.User{}, err

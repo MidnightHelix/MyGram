@@ -9,6 +9,7 @@ import (
 	"github.com/MidnightHelix/MyGram/internal/service"
 	"github.com/MidnightHelix/MyGram/pkg"
 	"github.com/MidnightHelix/MyGram/pkg/dto"
+	"github.com/MidnightHelix/MyGram/pkg/validator"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -22,27 +23,29 @@ type CommentHandler interface {
 }
 
 type commentHandlerImpl struct {
-	svc service.CommentService
+	svc       service.CommentService
+	validator *validator.CustomValidator
 }
 
-func NewCommentHandler(svc service.CommentService) CommentHandler {
+func NewCommentHandler(svc service.CommentService, validator *validator.CustomValidator) CommentHandler {
 	return &commentHandlerImpl{
-		svc: svc,
+		svc:       svc,
+		validator: validator,
 	}
 }
 
-// ShowUsers godoc
+// ShowComments godoc
 //
-//	@Summary		Show users list
-//	@Description	will fetch 3rd party server to get users data
-//	@Tags			users
+//	@Summary		Show comment list
+//	@Description	Get comments of user
+//	@Tags			comments
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	[]model.User
+//	@Success		200	{object}	[]dto.Comment
 //	@Failure		400	{object}	pkg.ErrorResponse
 //	@Failure		404	{object}	pkg.ErrorResponse
 //	@Failure		500	{object}	pkg.ErrorResponse
-//	@Router			/users [get]
+//	@Router			/comments [get]
 func (u *commentHandlerImpl) GetComments(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {
@@ -91,19 +94,6 @@ func (u *commentHandlerImpl) GetComments(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, pkg.SuccessResponse{Data: data})
 }
 
-// ShowUsersById godoc
-//
-//	@Summary		Show users detail
-//	@Description	will fetch 3rd party server to get users data to get detail user
-//	@Tags			users
-//	@Accept			json
-//	@Produce		json
-//	@Param			id	path		int	true	"User ID"
-//	@Success		200	{object}	model.User
-//	@Failure		400	{object}	pkg.ErrorResponse
-//	@Failure		404	{object}	pkg.ErrorResponse
-//	@Failure		500	{object}	pkg.ErrorResponse
-//	@Router			/users/{id} [get]
 // func (u *photoHandlerImpl) GetUsersById(ctx *gin.Context) {
 // 	// get id user
 // 	id, err := strconv.Atoi(ctx.Param("id"))
@@ -119,6 +109,20 @@ func (u *commentHandlerImpl) GetComments(ctx *gin.Context) {
 // 	ctx.JSON(http.StatusOK, user)
 // }
 
+//	 PostComment godoc
+//
+//		@Summary		Post a comment
+//		@Description	Create comment with input payload
+//		@Tags			comments
+//		@Accept			json
+//		@Produce		json
+//
+// @Param comment body Comment true "Create Comment"
+// @Success		201	{object}	dto.Comment
+// @Failure		400	{object}	pkg.ErrorResponse
+// @Failure		404	{object}	pkg.ErrorResponse
+// @Failure		500	{object}	pkg.ErrorResponse
+// @Router			/comments [post]
 func (u *commentHandlerImpl) PostComment(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {
@@ -144,6 +148,11 @@ func (u *commentHandlerImpl) PostComment(ctx *gin.Context) {
 	// 	return
 	// }
 
+	if err := u.validator.ValidateStruct(comment); err != nil {
+		ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
+		return
+	}
+
 	comment, err := u.svc.PostComment(ctx, comment, uint64(userID))
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, pkg.ErrorResponse{Message: err.Error()})
@@ -160,6 +169,21 @@ func (u *commentHandlerImpl) PostComment(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, pkg.SuccessResponse{Data: data})
 }
 
+//	 UpdateComment godoc
+//
+//		@Summary		Update a comment
+//		@Description	Update comment with input payload
+//		@Tags			comments
+//		@Accept			json
+//		@Produce		json
+//
+// @Param comment body Comment true "Update Comment"
+// @Param        id   path      int  true  "Comment ID"
+// @Success		200	{object}	dto.Comment
+// @Failure		400	{object}	pkg.ErrorResponse
+// @Failure		404	{object}	pkg.ErrorResponse
+// @Failure		500	{object}	pkg.ErrorResponse
+// @Router			/comments/{id} [put]
 func (u *commentHandlerImpl) EditComment(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {
@@ -201,6 +225,11 @@ func (u *commentHandlerImpl) EditComment(ctx *gin.Context) {
 	// 	return
 	// }
 
+	if err := u.validator.ValidateStruct(req); err != nil {
+		ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
+		return
+	}
+
 	comment, err := u.svc.EditComment(ctx, req, uint64(id))
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, pkg.ErrorResponse{Message: err.Error()})
@@ -217,6 +246,19 @@ func (u *commentHandlerImpl) EditComment(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, pkg.SuccessResponse{Data: data})
 }
 
+// DeleteComment godoc
+//
+// @Summary		Delete a comment
+// @Description	Delete comment with id param
+// @Tags			comments
+// @Accept			json
+// @Produce		json
+// @Param        id   path      int  true  "Comment ID"
+// @Success		200	{object}	pkg.SuccessResponse
+// @Failure		400	{object}	pkg.ErrorResponse
+// @Failure		404	{object}	pkg.ErrorResponse
+// @Failure		500	{object}	pkg.ErrorResponse
+// @Router			/comments/{id} [delete]
 func (u *commentHandlerImpl) DeleteComment(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {

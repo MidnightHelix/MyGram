@@ -25,3 +25,14 @@ type UserDefault struct {
 	Email    string  `json:"email"`
 	Username string  `json:"username"`
 }
+type UserSignUp struct {
+	Username string `json:"username" binding:"required" validate:"required,min=3,max=50"`
+	Email    string `json:"email" binding:"required" validate:"required,email"`
+	Password string `json:"password" binding:"required" validate:"required,min=6"`
+	Age      uint8  `json:"age" binding:"required" validate:"required,min=9"`
+}
+
+type UserLogin struct {
+	Email    string `json:"email" binding:"required"  validate:"required,email"`
+	Password string `json:"password" binding:"required"`
+}

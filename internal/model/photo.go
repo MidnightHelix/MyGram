@@ -8,13 +8,13 @@ import (
 
 type Photo struct {
 	ID        uint64 `json:"id" gorm:"primaryKey"`
-	Title     string `json:"title" gorm:"not null"`
+	Title     string `json:"title" gorm:"not null" binding:"required" validate:"required"`
 	Caption   string `json:"caption"`
-	Url       string `json:"photo_url" gorm:"not null"`
+	Url       string `json:"photo_url" gorm:"not null" binding:"required" validate:"required"`
 	UserID    uint64 `json:"user_id" gorm:"column:user_id"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `json:"deleted_at,omitempty"`
 	Comments  []Comment      `json:"comments,omitempty"`
-	User      User
+	User      *User          `json:"user,omitempty" validate:"-"`
 }

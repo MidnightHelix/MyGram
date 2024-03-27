@@ -9,6 +9,7 @@ import (
 	"github.com/MidnightHelix/MyGram/internal/service"
 	"github.com/MidnightHelix/MyGram/pkg"
 	"github.com/MidnightHelix/MyGram/pkg/dto"
+	"github.com/MidnightHelix/MyGram/pkg/validator"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -23,12 +24,14 @@ type UserHandler interface {
 }
 
 type userHandlerImpl struct {
-	svc service.UserService
+	svc       service.UserService
+	validator *validator.CustomValidator
 }
 
-func NewUserHandler(svc service.UserService) UserHandler {
+func NewUserHandler(svc service.UserService, validator *validator.CustomValidator) UserHandler {
 	return &userHandlerImpl{
-		svc: svc,
+		svc:       svc,
+		validator: validator,
 	}
 }
 
@@ -81,15 +84,33 @@ func (u *userHandlerImpl) GetUsersById(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, user)
 }
 
+//	 RegisterUser godoc
+//
+//		@Summary		Create User
+//		@Description	Create User with input payload
+//		@Tags			users
+//		@Accept			json
+//		@Produce		json
+//		@Param user body dto.UserSignUp true "Create User"
+//		@Success		201	{object}	pkg.SuccessResponse
+//		@Failure		400	{object}	pkg.ErrorResponse
+//		@Failure		404	{object}	pkg.ErrorResponse
+//		@Failure		500	{object}	pkg.ErrorResponse
+//		@Router			/users/register [post]
 func (u *userHandlerImpl) UserSignUp(ctx *gin.Context) {
 	// binding sign-up body
-	userSignUp := model.UserSignUp{}
+	userSignUp := dto.UserSignUp{}
 	if err := ctx.Bind(&userSignUp); err != nil {
 		ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
 		return
 	}
 
-	if err := userSignUp.Validate(); err != nil {
+	// if err := userSignUp.Validate(); err != nil {
+	// 	ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
+	// 	return
+	// }
+
+	if err := u.validator.ValidateStruct(userSignUp); err != nil {
 		ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
 		return
 	}
@@ -111,8 +132,21 @@ func (u *userHandlerImpl) UserSignUp(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, pkg.SuccessResponse{Data: data})
 }
 
+//	 UserLogin godoc
+//
+//		@Summary		User Login
+//		@Description	User login
+//		@Tags			users
+//		@Accept			json
+//		@Produce		json
+//		@Param user body dto.UserLogin true "User Login"
+//		@Success		201	{object}	pkg.SuccessResponse
+//		@Failure		400	{object}	pkg.ErrorResponse
+//		@Failure		404	{object}	pkg.ErrorResponse
+//		@Failure		500	{object}	pkg.ErrorResponse
+//		@Router			/users/login [post]
 func (u *userHandlerImpl) UserLogin(ctx *gin.Context) {
-	userLogin := model.UserLogin{}
+	userLogin := dto.UserLogin{}
 	if err := ctx.Bind(&userLogin); err != nil {
 		ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
 		return
@@ -122,6 +156,11 @@ func (u *userHandlerImpl) UserLogin(ctx *gin.Context) {
 	// 	ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
 	// 	return
 	// }
+
+	if err := u.validator.ValidateStruct(userLogin); err != nil {
+		ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
+		return
+	}
 
 	user, err := u.svc.Login(ctx, userLogin)
 	if err != nil {
@@ -140,6 +179,24 @@ func (u *userHandlerImpl) UserLogin(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, pkg.SuccessResponse{Data: data})
 }
 
+//	 UpdateUser godoc
+//
+//		@Summary		Update user
+//		@Description	Update user with input payload
+//		@Tags			users
+//		@Accept			json
+//		@Produce		json
+//
+// @Security ApiKeyAuth
+// @param Authorization header string true "Authorization"
+//
+//	@Param user body User true "Update User"
+//	@Param        id   path      int  true  "User ID"
+//	@Success		200	{object}	dto.User
+//	@Failure		400	{object}	pkg.ErrorResponse
+//	@Failure		404	{object}	pkg.ErrorResponse
+//	@Failure		500	{object}	pkg.ErrorResponse
+//	@Router			/users/{id} [put]
 func (u *userHandlerImpl) EditUser(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if id == 0 || err != nil {
@@ -184,6 +241,22 @@ func (u *userHandlerImpl) EditUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, pkg.SuccessResponse{Data: data})
 }
 
+//	 DeleteUser godoc
+//
+//		@Summary		Delete user
+//		@Description	Delete user
+//		@Tags			users
+//		@Accept			json
+//		@Produce		json
+//
+// @Security ApiKeyAuth
+// @param Authorization header string true "Authorization"
+//
+//	@Success		200	{object}	pkg.SuccessResponse
+//	@Failure		400	{object}	pkg.ErrorResponse
+//	@Failure		404	{object}	pkg.ErrorResponse
+//	@Failure		500	{object}	pkg.ErrorResponse
+//	@Router			/users [delete]
 func (u *userHandlerImpl) DeleteUser(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {

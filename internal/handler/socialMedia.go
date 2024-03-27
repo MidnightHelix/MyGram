@@ -9,6 +9,7 @@ import (
 	"github.com/MidnightHelix/MyGram/internal/service"
 	"github.com/MidnightHelix/MyGram/pkg"
 	"github.com/MidnightHelix/MyGram/pkg/dto"
+	"github.com/MidnightHelix/MyGram/pkg/validator"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -22,27 +23,33 @@ type SocialMediaHandler interface {
 }
 
 type socialMediaHandlerImpl struct {
-	svc service.SocialMediaService
+	svc       service.SocialMediaService
+	validator *validator.CustomValidator
 }
 
-func NewSocialMediaHandler(svc service.SocialMediaService) SocialMediaHandler {
+func NewSocialMediaHandler(svc service.SocialMediaService, validator *validator.CustomValidator) SocialMediaHandler {
 	return &socialMediaHandlerImpl{
-		svc: svc,
+		svc:       svc,
+		validator: validator,
 	}
 }
 
-// ShowUsers godoc
+// ShowSocialMedia godoc
 //
-//	@Summary		Show users list
-//	@Description	will fetch 3rd party server to get users data
-//	@Tags			users
+//	@Summary		Show scial media list
+//	@Description	Get social medias of user
+//	@Tags			socialmedias
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	[]model.User
+//
+// @Security ApiKeyAuth
+// @param Authorization header string true "Authorization"
+//
+//	@Success		200	{object}	[]dto.SocialMedia
 //	@Failure		400	{object}	pkg.ErrorResponse
 //	@Failure		404	{object}	pkg.ErrorResponse
 //	@Failure		500	{object}	pkg.ErrorResponse
-//	@Router			/users [get]
+//	@Router			/socialmedias [get]
 func (u *socialMediaHandlerImpl) GetSocialMedias(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {
@@ -84,19 +91,6 @@ func (u *socialMediaHandlerImpl) GetSocialMedias(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, pkg.SuccessResponse{Data: data})
 }
 
-// ShowUsersById godoc
-//
-//	@Summary		Show users detail
-//	@Description	will fetch 3rd party server to get users data to get detail user
-//	@Tags			users
-//	@Accept			json
-//	@Produce		json
-//	@Param			id	path		int	true	"User ID"
-//	@Success		200	{object}	model.User
-//	@Failure		400	{object}	pkg.ErrorResponse
-//	@Failure		404	{object}	pkg.ErrorResponse
-//	@Failure		500	{object}	pkg.ErrorResponse
-//	@Router			/users/{id} [get]
 // func (u *photoHandlerImpl) GetUsersById(ctx *gin.Context) {
 // 	// get id user
 // 	id, err := strconv.Atoi(ctx.Param("id"))
@@ -112,6 +106,23 @@ func (u *socialMediaHandlerImpl) GetSocialMedias(ctx *gin.Context) {
 // 	ctx.JSON(http.StatusOK, user)
 // }
 
+//	 CreateSocialMedia godoc
+//
+//		@Summary		create social media
+//		@Description	create social media with input payload
+//		@Tags			socialmedias
+//		@Accept			json
+//		@Produce		json
+//
+// @Security ApiKeyAuth
+// @param Authorization header string true "Authorization"
+//
+//	@Param socialMedia body SocialMedia true "Create Social Media"
+//	@Success		200	{object}	dto.SocialMedia
+//	@Failure		400	{object}	pkg.ErrorResponse
+//	@Failure		404	{object}	pkg.ErrorResponse
+//	@Failure		500	{object}	pkg.ErrorResponse
+//	@Router			/socialmedias [post]
 func (u *socialMediaHandlerImpl) CreateSocialMedia(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {
@@ -137,6 +148,11 @@ func (u *socialMediaHandlerImpl) CreateSocialMedia(ctx *gin.Context) {
 	// 	return
 	// }
 
+	if err := u.validator.ValidateStruct(socialMedia); err != nil {
+		ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
+		return
+	}
+
 	socialMedia, err := u.svc.CreateSocialMedia(ctx, socialMedia, uint64(userID))
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, pkg.ErrorResponse{Message: err.Error()})
@@ -153,6 +169,24 @@ func (u *socialMediaHandlerImpl) CreateSocialMedia(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, pkg.SuccessResponse{Data: data})
 }
 
+//	 UpdateSocialMedia godoc
+//
+//		@Summary		Update social media
+//		@Description	Update social media with input payload
+//		@Tags			socialmedias
+//		@Accept			json
+//		@Produce		json
+//
+// @Security ApiKeyAuth
+// @param Authorization header string true "Authorization"
+//
+//	@Param socialMedia body SocialMedia true "Update Social Media"
+//	@Param        id   path      int  true  "SocialMedia ID"
+//	@Success		200	{object}	dto.SocialMedia
+//	@Failure		400	{object}	pkg.ErrorResponse
+//	@Failure		404	{object}	pkg.ErrorResponse
+//	@Failure		500	{object}	pkg.ErrorResponse
+//	@Router			/socialmedias/{id} [put]
 func (u *socialMediaHandlerImpl) EditSocialMedia(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {
@@ -194,6 +228,11 @@ func (u *socialMediaHandlerImpl) EditSocialMedia(ctx *gin.Context) {
 	// 	return
 	// }
 
+	if err := u.validator.ValidateStruct(req); err != nil {
+		ctx.JSON(http.StatusBadRequest, pkg.ErrorResponse{Message: err.Error()})
+		return
+	}
+
 	socialMedia, err := u.svc.EditSocialMedia(ctx, req, uint64(id))
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, pkg.ErrorResponse{Message: err.Error()})
@@ -210,6 +249,21 @@ func (u *socialMediaHandlerImpl) EditSocialMedia(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, pkg.SuccessResponse{Data: data})
 }
 
+// DeleteSocialMedia godoc
+//
+// @Summary		Delete social media
+// @Description	Delete social media with id param
+// @Tags			socialmedias
+// @Accept			json
+// @Produce		json
+// @Security ApiKeyAuth
+// @param Authorization header string true "Authorization"
+// @Param        id   path      int  true  "SocialMedia ID"
+// @Success		200	{object}	pkg.SuccessResponse
+// @Failure		400	{object}	pkg.ErrorResponse
+// @Failure		404	{object}	pkg.ErrorResponse
+// @Failure		500	{object}	pkg.ErrorResponse
+// @Router			/socialmedias/{id} [delete]
 func (u *socialMediaHandlerImpl) DeleteSocialMedia(ctx *gin.Context) {
 	claims, ok := ctx.Get("claims")
 	if !ok {
